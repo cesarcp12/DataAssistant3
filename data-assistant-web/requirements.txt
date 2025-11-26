@@ -1,0 +1,7 @@
+fastapi
+uvicorn
+google-cloud-bigquery
+oauth2client
+db-dtypes
+jinja2
+google-generativeai

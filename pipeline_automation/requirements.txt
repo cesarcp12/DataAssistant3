@@ -1,0 +1,6 @@
+pandas
+pandas-gbq
+google-cloud-bigquery
+gspread
+oauth2client
+db-dtypes

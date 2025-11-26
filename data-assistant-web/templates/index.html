@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Data Assistant - Enterprise Search</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f8fafc;
+        }
+
+        .gradient-text {
+            background: linear-gradient(135deg, #2563eb 0%, #7c3aed 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+    </style>
+</head>
+
+<body class="min-h-screen flex flex-col text-slate-800">
+
+    <!-- Navbar -->
+    <nav class="bg-white border-b border-slate-200 px-6 py-4 sticky top-0 z-50 shadow-sm">
+        <div class="max-w-5xl mx-auto flex justify-between items-center">
+            <div class="flex items-center gap-3">
+                <div class="bg-blue-600 text-white p-2 rounded-lg font-bold text-lg shadow-blue-200 shadow-lg">DA</div>
+                <h1 class="text-xl font-bold tracking-tight">Data Assistant <span
+                        class="text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full text-xs border border-blue-100 ml-2 align-middle">FastAPI</span>
+                </h1>
+            </div>
+            <div class="text-xs font-medium text-slate-500 bg-slate-100 px-3 py-1 rounded-full">
+                <span class="w-2 h-2 bg-green-500 rounded-full inline-block mr-1"></span> GCP Cloud Run
+            </div>
+        </div>
+    </nav>
+
+    <main class="flex-grow container mx-auto px-4 py-12 max-w-4xl">
+
+        <!-- Hero -->
+        <div class="text-center mb-12">
+            <h2 class="text-4xl md:text-5xl font-extrabold mb-4 tracking-tight text-slate-900">
+                Inteligencia de Datos <br><span class="gradient-text">al instante.</span>
+            </h2>
+            <p class="text-lg text-slate-600 mb-8 max-w-xl mx-auto leading-relaxed">
+                Explora el catálogo de datos corporativo usando lenguaje natural. Potenciado por BigQuery Vector Search
+                y Gemini.
+            </p>
+
+            <!-- Search Bar -->
+            <div class="relative max-w-2xl mx-auto group">
+                <div
+                    class="absolute -inset-1 bg-gradient-to-r from-blue-600 to-violet-600 rounded-2xl blur opacity-25 group-hover:opacity-50 transition duration-200">
+                </div>
+                <div class="relative bg-white rounded-2xl shadow-xl">
+                    <input type="text" id="searchInput"
+                        class="block w-full pl-6 pr-32 py-5 text-lg rounded-2xl border-0 focus:ring-2 focus:ring-blue-500 transition-all placeholder-slate-400 text-slate-700"
+                        placeholder="Ej: Tablas de comportamiento de pago..." onkeypress="handleKeyPress(event)">
+                    <div class="absolute inset-y-0 right-2 flex items-center">
+                        <button onclick="buscar()"
+                            class="bg-slate-900 hover:bg-blue-700 text-white font-medium py-2.5 px-6 rounded-xl transition-colors duration-200 shadow-lg flex items-center gap-2">
+                            Buscar
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Loading -->
+            <div id="loading" class="hidden mt-8">
+                <div class="flex items-center justify-center gap-3 text-blue-600">
+                    <svg class="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none"
+                        viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4">
+                        </circle>
+                        <path class="opacity-75" fill="currentColor"
+                            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z">
+                        </path>
+                    </svg>
+                    <span class="font-medium text-sm">Procesando con IA...</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Results -->
+        <div id="resultsArea" class="hidden space-y-8 animate-fade-in-up">
+
+            <!-- AI Summary Card -->
+            <div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-200 relative overflow-hidden">
+                <div class="absolute top-0 left-0 w-1 h-full bg-gradient-to-b from-blue-500 to-violet-500"></div>
+                <div class="flex gap-4">
+                    <div class="flex-shrink-0">
+                        <div class="h-10 w-10 rounded-lg bg-blue-50 flex items-center justify-center text-xl">✨</div>
+                    </div>
+                    <div>
+                        <h3 class="font-bold text-slate-800 text-sm uppercase tracking-wide mb-1">Análisis Generativo
+                        </h3>
+                        <p id="aiContent" class="text-slate-600 leading-relaxed text-sm"></p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="border-b border-slate-200 pb-2 flex justify-between items-end">
+                <h3 class="text-lg font-bold text-slate-800">Resultados Relevantes</h3>
+            </div>
+
+            <!-- List -->
+            <div id="resultsList" class="grid gap-4"></div>
+        </div>
+
+    </main>
+
+    <script>
+        function handleKeyPress(e) {
+            if (e.key === 'Enter') buscar();
+        }
+
+        async function buscar() {
+            const query = document.getElementById('searchInput').value.trim();
+            if (!query) return;
+
+            // UI Reset
+            document.getElementById('loading').classList.remove('hidden');
+            document.getElementById('resultsArea').classList.add('hidden');
+            document.getElementById('resultsList').innerHTML = '';
+
+            try {
+                // Llamada a la API FastAPI
+                const response = await fetch('/api/search', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ query: query })
+                });
+
+                const data = await response.json();
+                document.getElementById('loading').classList.add('hidden');
+
+                if (response.ok && data.status === 'success') {
+                    renderResults(data);
+                } else {
+                    showError(data.message || 'Error del servidor');
+                }
+
+            } catch (error) {
+                document.getElementById('loading').classList.add('hidden');
+                showError('Error de conexión: ' + error.message);
+            }
+        }
+
+        function renderResults(data) {
+            // 1. Resumen
+            document.getElementById('aiContent').innerText = data.ai_summary || "Sin resumen disponible.";
+
+            // 2. Lista
+            const container = document.getElementById('resultsList');
+
+            if (!data.results || data.results.length === 0) {
+                container.innerHTML = `<div class="text-center py-8 text-slate-500">No se encontraron coincidencias semánticas.</div>`;
+            } else {
+                data.results.forEach(item => {
+                    const percent = Math.round(item.similitud * 100);
+                    let badgeColor = percent > 75 ? 'bg-green-100 text-green-700' : 'bg-blue-50 text-blue-700';
+
+                    const card = `
+                        <div class="bg-white p-5 rounded-xl border border-slate-200 hover:border-blue-300 hover:shadow-md transition-all group">
+                            <div class="flex justify-between items-start mb-2">
+                                <div class="flex gap-2 text-xs font-bold uppercase tracking-wider">
+                                    <span class="px-2 py-1 bg-slate-100 text-slate-600 rounded">${item.sistema}</span>
+                                    <span class="px-2 py-1 bg-violet-50 text-violet-700 rounded border border-violet-100">${item.taxonomia}</span>
+                                </div>
+                                <div class="${badgeColor} px-2 py-1 rounded text-xs font-bold">
+                                    ${percent}% Match
+                                </div>
+                            </div>
+                            <h4 class="text-slate-800 font-medium text-lg group-hover:text-blue-600 transition-colors">${item.descripcion}</h4>
+                            <p class="text-xs text-slate-400 mt-2 font-mono">ID: ${item.id}</p>
+                        </div>
+                    `;
+                    container.innerHTML += card;
+                });
+            }
+            document.getElementById('resultsArea').classList.remove('hidden');
+        }
+
+        function showError(msg) {
+            alert("Error: " + msg);
+        }
+    </script>
+</body>
+
+</html>
